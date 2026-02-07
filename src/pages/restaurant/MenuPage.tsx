@@ -9,18 +9,66 @@ import {
   getItemsByCategory,
   getStoriesByRestaurant,
   type MenuItem,
+  type Category,
 } from '@/data/mock-data';
 import ItemCard from '@/components/restaurant/ItemCard';
 import ItemSheet from '@/components/restaurant/ItemSheet';
 import StoryBar from '@/components/restaurant/StoryBar';
 import StoryViewer from '@/components/restaurant/StoryViewer';
 import WhatsAppButton from '@/components/restaurant/WhatsAppButton';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+
+/* Accordion section per category — items lazy-loaded on first expand */
+const CategoryAccordion = ({
+  category,
+  isExpanded,
+  onItemClick,
+}: {
+  category: Category;
+  isExpanded: boolean;
+  onItemClick: (item: MenuItem) => void;
+}) => {
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  // Lazy load items on first expand
+  if (isExpanded && !loaded) {
+    setItems(getItemsByCategory(category.id));
+    setLoaded(true);
+  }
+
+  return (
+    <AccordionItem
+      value={category.id}
+      className="bento-shadow rounded-2xl border-0 bg-card overflow-hidden"
+    >
+      <AccordionTrigger className="px-4 py-3.5 hover:no-underline">
+        <span className="font-display text-lg font-bold text-card-foreground">
+          {category.title}
+        </span>
+      </AccordionTrigger>
+      <AccordionContent className="px-4 pb-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {items.map((item, i) => (
+            <ItemCard
+              key={item.id}
+              item={item}
+              index={i}
+              onClick={() => onItemClick(item)}
+            />
+          ))}
+        </div>
+      </AccordionContent>
+    </AccordionItem>
+  );
+};
 
 const MenuPage = () => {
   const navigate = useNavigate();
   const { restaurantId, collectionId } = useParams();
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [storyIndex, setStoryIndex] = useState<number | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
 
   const restaurant = mockRestaurant;
   const collection = collectionId ? getCollectionById(collectionId) : null;
@@ -52,32 +100,23 @@ const MenuPage = () => {
       {/* Stories */}
       <StoryBar stories={stories} onStoryClick={setStoryIndex} />
 
-      {/* Categories + Items */}
-      <div className="space-y-8 px-4 pt-2">
-        {categories.map(category => {
-          const items = getItemsByCategory(category.id);
-          return (
-            <section key={category.id}>
-              <motion.h2
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mb-3 font-display text-xl font-bold text-foreground"
-              >
-                {category.title}
-              </motion.h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {items.map((item, i) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    index={i}
-                    onClick={() => setSelectedItem(item)}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
+      {/* Categories + Items (Accordion) */}
+      <div className="px-4 pt-2">
+        <Accordion
+          type="multiple"
+          className="space-y-3"
+          value={expandedCategories}
+          onValueChange={setExpandedCategories}
+        >
+          {categories.map(category => (
+            <CategoryAccordion
+              key={category.id}
+              category={category}
+              isExpanded={expandedCategories.includes(category.id)}
+              onItemClick={setSelectedItem}
+            />
+          ))}
+        </Accordion>
       </div>
 
       <WhatsAppButton phoneNumber={restaurant.whatsappNumber} />
